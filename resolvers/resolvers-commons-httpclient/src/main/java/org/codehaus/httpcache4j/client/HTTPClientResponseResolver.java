@@ -146,7 +146,7 @@ public class HTTPClientResponseResolver extends AbstractResponseResolver {
      * @param requestURI the request URI.
      * @return a new HttpMethod subclass.
      */
-    HttpMethod getMethod(HTTPMethod method, URI requestURI) {
+    protected HttpMethod getMethod(HTTPMethod method, URI requestURI) {
         switch (method) {
             case GET:
                 return new GetMethod(requestURI.toString());
