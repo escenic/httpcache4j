@@ -204,7 +204,7 @@
   </build>
   <properties>
     <currentVersion>${project.version}</currentVersion>
-    <snapshotUrl>http://repo.dev.escenic.com/content/repositories/escenic-snapshots</snapshotUrl>
+    <snapshotUrl>http://repo.dev.escenic.com/content/repositories/thirdparty-snapshots</snapshotUrl>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -341,7 +341,7 @@
   <distributionManagement>
     <repository>
       <id>central</id>
-      <url>http://repo.dev.escenic.com/content/repositories/escenic</url>
+      <url>http://repo.dev.escenic.com/content/repositories/thirdparty</url>
     </repository>
     <snapshotRepository>
       <id>central</id>
