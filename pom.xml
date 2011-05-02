@@ -206,6 +206,7 @@
   </build>
   <properties>
     <currentVersion>${project.version}</currentVersion>
+    <snapshotUrl>http://repo.dev.escenic.com/content/repositories/thirdparty-snapshots</snapshotUrl>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -342,9 +343,8 @@
 
   <distributionManagement>
     <repository>
-      <id>codehaus-staging</id>
-      <name>Codehaus staging repo</name>
-      <url>https://nexus.codehaus.org/service/local/staging/deploy/maven2</url>
+      <id>central</id>
+      <url>http://repo.dev.escenic.com/content/repositories/thirdparty</url>
     </repository>
     <snapshotRepository>
       <id>codehaus-snapshots</id>
