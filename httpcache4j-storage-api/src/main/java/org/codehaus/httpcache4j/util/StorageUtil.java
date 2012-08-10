@@ -24,7 +24,7 @@ import java.io.File;
 public final class StorageUtil {
     private StorageUtil(){}
 
-    public static void ensureDirectoryExists(File directory) {
+    public static synchronized void ensureDirectoryExists(File directory) {
         if (!directory.exists() && !directory.mkdirs()) {
             throw new IllegalArgumentException(String.format("Directory %s did not exist, and could not be created", directory));
         }
