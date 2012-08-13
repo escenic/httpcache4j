@@ -32,6 +32,7 @@ import java.net.URI;
 
 import static junit.framework.Assert.assertEquals;
 import static org.junit.Assert.*;
+import org.codehaus.httpcache4j.HTTPRequest;
 
 /** @author <a href="mailto:hamnis@codehaus.org">Erlend Hamnaberg</a> */
 public class PersistentCacheStorageTest extends CacheStorageAbstractTest {
@@ -69,6 +70,34 @@ public class PersistentCacheStorageTest extends CacheStorageAbstractTest {
 
     }
 
+  @Test
+  public void testInsertFromMultipleThreads() throws Exception {
+    Runnable insertRunnable = new Runnable() {
+        public void run() {
+          for (int i = 0; i < 1000; i++) {
+            HTTPResponse response = createRealResponse();
+            HTTPRequest request = new HTTPRequest(URI.create("foo" + (int)Math.floor((Math.random() * 100) + 1) ));
+            storage.insert(request, response);
+          }
+        }
+      };
+    Runnable updateRunnable = new Runnable() {
+        public void run() {
+          while(true) {
+            HTTPResponse response = createRealResponse();
+            HTTPRequest request = new HTTPRequest(URI.create("foo" + (int)Math.floor((Math.random() * 100) + 1) ));
+            storage.update(request, response);
+          }
+        }
+      };
+    Thread t1 = new Thread(insertRunnable, "t1");
+    Thread t3 = new Thread(updateRunnable, "t3");
+    t1.start();
+    t3.start();
+    t1.join();
+    t3.interrupt();
+  }
+  
     private HTTPResponse createRealResponse() {
         return new HTTPResponse(new InputStreamPayload(new NullInputStream(10), MIMEType.APPLICATION_OCTET_STREAM), Status.OK, new Headers());
     }

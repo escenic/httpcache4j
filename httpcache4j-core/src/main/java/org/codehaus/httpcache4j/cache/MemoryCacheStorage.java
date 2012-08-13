@@ -41,7 +41,7 @@ public class MemoryCacheStorage implements CacheStorage {
     protected final int capacity;
     protected InvalidateOnRemoveLRUHashMap cache;
     private final ReentrantReadWriteLock rwlock = new ReentrantReadWriteLock();
-    private final Lock read = rwlock.readLock();
+    protected final Lock read = rwlock.readLock();
     private final Lock write = rwlock.writeLock();
 
     public MemoryCacheStorage() {
@@ -74,12 +74,12 @@ public class MemoryCacheStorage implements CacheStorage {
 
 
     public HTTPResponse insert(final HTTPRequest request, final HTTPResponse response) {
-        write.lock();
         Key key = Key.create(request, response);
-        invalidate(key);
-        HTTPResponse cacheableResponse = rewriteResponse(key, response);
-
+        write.lock();
         try {
+            invalidate(key);
+            HTTPResponse cacheableResponse = rewriteResponse(key, response);
+
             return putImpl(key, cacheableResponse);
         } finally {
             write.unlock();
@@ -87,7 +87,12 @@ public class MemoryCacheStorage implements CacheStorage {
     }
 
     protected HTTPResponse putImpl(final Key pKey, final HTTPResponse pCacheableResponse) {
-        cache.put(pKey, createCacheItem(pCacheableResponse));
+        write.lock();
+        try {
+            cache.put(pKey, createCacheItem(pCacheableResponse));
+        } finally {
+            write.unlock();
+        }
         return pCacheableResponse;
     }
 
