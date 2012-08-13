@@ -23,10 +23,6 @@ public class InvalidateOnRemoveLRUHashMap extends LinkedHashMap<Key, CacheItem> 
         this.listener = map.listener;
     }
 
-    public InvalidateOnRemoveLRUHashMap copy() {
-        return new InvalidateOnRemoveLRUHashMap(this);
-    }
-
     @Override
     protected boolean removeEldestEntry(Map.Entry<Key, CacheItem> eldest) {
         return size() > capacity;

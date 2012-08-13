@@ -86,7 +86,7 @@ public class PersistentCacheStorage extends MemoryCacheStorage implements Serial
     }
 
     @Override
-    public HTTPResponse putImpl(Key key, HTTPResponse response) {
+    protected HTTPResponse putImpl(Key key, HTTPResponse response) {
         HTTPResponse res = super.putImpl(key, response);
         if (serializationPolicy.shouldWePersist(modCount++, lastSerialization)) {
             lastSerialization = System.currentTimeMillis();
@@ -135,17 +135,18 @@ public class PersistentCacheStorage extends MemoryCacheStorage implements Serial
     }
 
     private synchronized void saveCacheToDisk() {
-        InvalidateOnRemoveLRUHashMap snapshot = this.cache.copy();
+        read.lock();
 
         FileOutputStream outputStream = null;
         try {
             outputStream = FileUtils.openOutputStream(serializationFile);
-            SerializationUtils.serialize(snapshot, outputStream);
+            SerializationUtils.serialize(cache, outputStream);
         }
         catch (Exception e) {
             //Ignored, we create a new one.
         }
         finally {
+            read.unlock();
             IOUtils.closeQuietly(outputStream);
         }
     }
