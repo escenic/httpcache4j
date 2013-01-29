@@ -59,7 +59,8 @@ public class MemoryCacheStorage implements CacheStorage {
             try {
                 stream = payload.getInputStream();
                 return new HTTPResponse(createPayload(key, payload, stream), response.getStatus(), new Headers(response.getHeaders()));
-            } catch (IOException ignore) {
+            } catch (IOException e) {
+                throw new IllegalArgumentException("Unable to cache response", e);
             }
             finally {
                 IOUtils.closeQuietly(stream);
@@ -68,17 +69,15 @@ public class MemoryCacheStorage implements CacheStorage {
         else {
             return response;
         }
-        throw new IllegalArgumentException("Unable to cache response");
     }
 
 
     public HTTPResponse insert(final HTTPRequest request, final HTTPResponse response) {
         write.lock();
-        Key key = Key.create(request, response);
-        invalidate(key);
-        HTTPResponse cacheableResponse = rewriteResponse(key, response);
-
         try {
+            Key key = Key.create(request, response);
+            invalidate(key);
+            HTTPResponse cacheableResponse = rewriteResponse(key, response);
             return putImpl(key, cacheableResponse);
         } finally {
             write.unlock();
