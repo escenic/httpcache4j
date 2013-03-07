@@ -20,7 +20,7 @@
   <parent>
     <groupId>org.codehaus.httpcache4j.storage</groupId>
     <artifactId>storage</artifactId>
-    <version>3.4-escenic-2</version>
+    <version>3.4-escenic-3</version>
   </parent>
   <artifactId>storage-h2</artifactId>
   <packaging>jar</packaging>
