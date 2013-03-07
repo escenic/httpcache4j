@@ -137,7 +137,7 @@ class HTTPCacheHelper {
     }
 
     boolean isCacheableRequest(HTTPRequest request) {
-        if (request.getMethod() == HTTPMethod.GET || request.getMethod() == HTTPMethod.HEAD) {
+        if (request.getMethod() == HTTPMethod.GET) {
             if (request.getHeaders().hasHeader(CACHE_CONTROL)) {
                 CacheControl cc = new CacheControl(request.getHeaders().getFirstHeader(CACHE_CONTROL));
                 //If the request tells us that we shouldn't cache the response, then we don't.
