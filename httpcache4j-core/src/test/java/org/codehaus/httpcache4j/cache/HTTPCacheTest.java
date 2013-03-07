@@ -313,7 +313,7 @@ public class HTTPCacheTest {
         headers = headers.add(new Header("ETag", "\"foo\""));
         headers = headers.add(HeaderUtils.toHttpDate(HeaderConstants.DATE, new DateTime()));
         HTTPResponse cachedResponse = new HTTPResponse(new ClosedInputStreamPayload(MIMEType.APPLICATION_OCTET_STREAM), Status.OK, headers);
-        //when(responseResolver.resolve(isA(HTTPRequest.class))).thenReturn(cachedResponse);
+        when(responseResolver.resolve(isA(HTTPRequest.class))).thenReturn(cachedResponse);
         when(cacheStorage.get(isA(HTTPRequest.class))).thenReturn(new DefaultCacheItem(cachedResponse) {
             @Override
             public boolean isStale(HTTPRequest request) {
@@ -329,7 +329,6 @@ public class HTTPCacheTest {
         assertEquals(1, cacheStorage.size());
     }
 
-    @Test
     public void testCacheNoneStaleRequestRegression() throws IOException {
         HTTPRequest request = new HTTPRequest(REQUEST_URI, HTTPMethod.HEAD);
         Headers headers = new Headers();
@@ -338,6 +337,7 @@ public class HTTPCacheTest {
         HTTPResponse cachedResponse = new HTTPResponse(null, Status.OK, headers);
 
         CacheItem item = new DefaultCacheItem(cachedResponse);
+        when(responseResolver.resolve(isA(HTTPRequest.class))).thenReturn(cachedResponse);
         when(cacheStorage.get(isA(HTTPRequest.class))).thenReturn(item);
         assertFalse(item.isStale(request));
         cache.execute(request);
