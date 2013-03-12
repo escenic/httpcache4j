@@ -23,6 +23,7 @@ import org.codehaus.httpcache4j.auth.DefaultAuthenticator;
 import org.codehaus.httpcache4j.auth.DefaultProxyAuthenticator;
 import org.codehaus.httpcache4j.payload.DelegatingInputStream;
 import org.codehaus.httpcache4j.resolver.AbstractResponseResolver;
+import org.codehaus.httpcache4j.resolver.ConnectionConfiguration;
 import org.codehaus.httpcache4j.resolver.ResolverConfiguration;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -38,16 +39,27 @@ import java.util.Map;
  * @version $Revision: #5 $ $Date: 2008/09/15 $
  */
 public class URLConnectionResponseResolver extends AbstractResponseResolver {
-    private final URLConnectionConfigurator configuration;
 
-    public URLConnectionResponseResolver(URLConnectionConfigurator configuration) {
-        super(new ResolverConfiguration(new DefaultProxyAuthenticator(configuration.getProxyConfiguration()), new DefaultAuthenticator()));
-        this.configuration = Preconditions.checkNotNull(configuration, "Configuration may not be null");
+    public URLConnectionResponseResolver(ResolverConfiguration configuration) {
+        super(configuration);
+        if (configuration.getConnectionConfiguration().getMaxConnections().isPresent()) {
+            throw new UnsupportedOperationException("Single Connection only resolver");
+        }
+        if (configuration.getConnectionConfiguration().getDefaultConnectionsPerHost().isPresent()) {
+            throw new UnsupportedOperationException("Single Connection only resolver");
+        }
+        if (!configuration.getConnectionConfiguration().getConnectionsPerHost().isEmpty()) {
+            throw new UnsupportedOperationException("This Resolver does not support connections per host");
+        }
+    }
+
+    public URLConnectionResponseResolver(ConnectionConfiguration connectionConfiguration) {
+        this(new ResolverConfiguration(new DefaultProxyAuthenticator(), new DefaultAuthenticator(), connectionConfiguration));
     }
 
     @Override
     protected HTTPResponse resolveImpl(HTTPRequest request) throws IOException {
-        URL url = request.getRequestURI().toURL();
+        URL url = request.getNormalizedURI().toURL();
         URLConnection openConnection = url.openConnection();
         if (openConnection instanceof HttpsURLConnection) {
             HttpsURLConnection connection = (HttpsURLConnection) openConnection;
@@ -126,11 +138,12 @@ public class URLConnectionResponseResolver extends AbstractResponseResolver {
     }
 
     private void configureConnection(HttpURLConnection connection) {
-        if (configuration.getConnectTimeout() > 0) {
-            connection.setConnectTimeout(configuration.getConnectTimeout());
+        ConnectionConfiguration configuration = getConfiguration().getConnectionConfiguration();
+        if (configuration.getSocketTimeout().isPresent()) {
+            connection.setConnectTimeout(configuration.getSocketTimeout().get());
         }
-        if (configuration.getReadTimeout() > 0) {
-            connection.setReadTimeout(configuration.getReadTimeout());
+        if (configuration.getTimeout().isPresent()) {
+            connection.setReadTimeout(configuration.getTimeout().get());
         }
         connection.setAllowUserInteraction(false);
     }

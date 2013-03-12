@@ -17,12 +17,18 @@
 package org.codehaus.httpcache4j;
 
 import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
 import org.codehaus.httpcache4j.mutable.MutableHeaders;
+import org.codehaus.httpcache4j.preference.Charset;
+import org.codehaus.httpcache4j.preference.Preference;
 import org.codehaus.httpcache4j.util.CaseInsensitiveKey;
+import org.joda.time.DateTime;
 
+import javax.annotation.Nullable;
 import java.util.*;
 
 
@@ -162,6 +168,141 @@ public final class Headers implements Iterable<Header> {
         return HeaderUtils.hasCacheableHeaders(this);
     }
 
+    public List<Preference<Locale>> getAcceptLanguage() {
+        return Preference.parse(getFirstHeader(HeaderConstants.ACCEPT_LANGUAGE), Preference.LocaleParse);
+    }
+
+    public Headers withAcceptLanguage(List<Preference<Locale>> acceptLanguage) {
+        return set(Preference.toHeader(HeaderConstants.ACCEPT_LANGUAGE, acceptLanguage, Preference.LocaleToString));
+    }
+
+    public List<Preference<Charset>> getAcceptCharset() {
+        return Preference.parse(getFirstHeader(HeaderConstants.ACCEPT_CHARSET), Preference.CharsetParse);
+    }
+
+    public Headers withAcceptCharset(List<Preference<Charset>> charsets) {
+        return set(Preference.toHeader(HeaderConstants.ACCEPT_CHARSET, charsets, Preference.CharsetToString));
+    }
+
+    public List<Preference<MIMEType>> getAccept() {
+        return Preference.parse(getFirstHeader(HeaderConstants.ACCEPT), Preference.MIMEParse);
+    }
+
+    public Headers withAccept(List<Preference<MIMEType>> charsets) {
+        return set(Preference.toHeader(HeaderConstants.ACCEPT, charsets, Preference.<MIMEType>toStringF()));
+    }
+
+    public Headers addAccept(Preference<MIMEType>... accept) {
+        List<Preference<MIMEType>> preferences = Arrays.asList(accept);
+        return add(Preference.toHeader(HeaderConstants.ACCEPT, preferences, Preference.<MIMEType>toStringF()));
+    }
+
+    public Headers addAccept(MIMEType... accept) {
+        List<Preference<MIMEType>> preferences = Preference.wrap(accept);
+        return add(Preference.toHeader(HeaderConstants.ACCEPT, preferences, Preference.<MIMEType>toStringF()));
+    }
+
+    public Headers addAcceptLanguage(Locale... accept) {
+        List<Preference<Locale>> preferences = Preference.wrap(accept);
+        return add(Preference.toHeader(HeaderConstants.ACCEPT_LANGUAGE, preferences, Preference.LocaleToString));
+    }
+
+    public Headers addAcceptLanguage(Preference<Locale>... accept) {
+        List<Preference<Locale>> preferences = Arrays.asList(accept);
+        return add(Preference.toHeader(HeaderConstants.ACCEPT_LANGUAGE, preferences, Preference.LocaleToString));
+    }
+
+    public Headers addAcceptCharset(Charset... accept) {
+        List<Preference<Charset>> preferences = Preference.wrap(accept);
+        return add(Preference.toHeader(HeaderConstants.ACCEPT_LANGUAGE, preferences, Preference.CharsetToString));
+    }
+
+    public Headers addAcceptCharset(Preference<Charset>... accept) {
+        List<Preference<Charset>> preferences = Arrays.asList(accept);
+        return add(Preference.toHeader(HeaderConstants.ACCEPT_LANGUAGE, preferences, Preference.CharsetToString));
+    }
+
+    public Set<HTTPMethod> getAllow() {
+        Header header = getFirstHeader(HeaderConstants.ALLOW);
+        if (header != null) {
+            ImmutableSet.Builder<HTTPMethod> builder = ImmutableSet.builder();
+            for (Directive directive : header.getDirectives()) {
+                builder.add(HTTPMethod.valueOf(directive.getName().toUpperCase(Locale.ENGLISH)));
+            }
+            return builder.build();
+        }
+        return Collections.emptySet();
+    }
+
+    public Headers withAllow(Set<HTTPMethod> allow) {
+        if (!allow.isEmpty()) {
+            String allowValue = Joiner.on(",").skipNulls().join(allow);
+            return set(HeaderConstants.ALLOW, allowValue);
+        }
+        return this;
+    }
+
+    public CacheControl getCacheControl() {
+        return new CacheControl(getFirstHeader(HeaderConstants.CACHE_CONTROL));
+    }
+
+    public Headers withCacheControl(CacheControl cc) {
+        return set(cc.toHeader());
+    }
+
+    public DateTime getDate() {
+        return HeaderUtils.fromHttpDate(getFirstHeader(HeaderConstants.DATE));
+    }
+
+    public Headers withDate(DateTime dt) {
+        return set(HeaderUtils.toHttpDate(HeaderConstants.DATE, dt));
+    }
+
+    public MIMEType getContentType() {
+        String ct = getFirstHeaderValue(HeaderConstants.CONTENT_TYPE);
+        return ct == null ? null : MIMEType.valueOf(ct);
+    }
+
+    public Headers withContentType(MIMEType ct) {
+        return set(HeaderConstants.CONTENT_TYPE, ct.toString());
+    }
+
+    public DateTime getExpires() {
+        return HeaderUtils.fromHttpDate(getFirstHeader(HeaderConstants.EXPIRES));
+    }
+
+    public Headers withExpires(DateTime expires) {
+        return set(HeaderUtils.toHttpDate(HeaderConstants.EXPIRES, expires));
+    }
+
+    public DateTime getLastModified() {
+        return HeaderUtils.fromHttpDate(getFirstHeader(HeaderConstants.LAST_MODIFIED));
+    }
+
+    public Headers withLastModified(DateTime lm) {
+        return set(HeaderUtils.toHttpDate(HeaderConstants.LAST_MODIFIED, lm));
+    }
+
+    public Conditionals getConditionals() {
+        return Conditionals.valueOf(this);
+    }
+
+    public Headers withConditionals(Conditionals conditionals) {
+        return add(conditionals.toHeaders());
+    }
+
+    public Tag getETag() {
+        Header tag = getFirstHeader(HeaderConstants.ETAG);
+        if (tag != null) {
+            return Tag.parse(tag.getValue());
+        }
+        return null;
+    }
+
+    public Headers withETag(Tag tag) {
+        return set(HeaderConstants.ETAG, tag.format());
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -204,6 +345,8 @@ public final class Headers implements Iterable<Header> {
         }
         return headers.toHeaders();
     }
+
+
 
     private static class HeaderHashMap extends LinkedHashMap<CaseInsensitiveKey, List<String>> {
         private static final long serialVersionUID = 2714358409043444835L;

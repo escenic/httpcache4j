@@ -18,8 +18,8 @@ package org.codehaus.httpcache4j.cache;
 
 import com.google.common.base.Preconditions;
 import org.codehaus.httpcache4j.*;
-import org.codehaus.httpcache4j.mutable.MutableRequest;
 import org.codehaus.httpcache4j.resolver.ResponseResolver;
+import org.codehaus.httpcache4j.util.URIBuilder;
 
 import java.io.IOException;
 import java.net.URI;
@@ -27,7 +27,6 @@ import java.net.URI;
 /**
  * TODO:
  * Support Warning header http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.46 partly supported now...
- * Support Range headers. http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35
  *
  */
 
@@ -75,30 +74,20 @@ public class HTTPCache {
         return statistics;
     }
 
-    @Deprecated
-    public HTTPResponse doCachedRequest(final HTTPRequest request) {
-        return execute(request, false);
-    }
-
-    @Deprecated
-    public HTTPResponse refreshCachedRequest(final HTTPRequest request) {
-        return execute(request, true);
-    }
-
     public HTTPResponse execute(final HTTPRequest request) {
-        return execute(request, false);
+        return execute(request, helper.isEndToEndReloadRequest(request));
     }
 
     public HTTPResponse executeRefresh(final HTTPRequest request) {
         return execute(request, true);
     }
 
-    @Deprecated
-    public HTTPResponse doCachedRequest(final HTTPRequest request, boolean force) {
-        return execute(request, force);
+    public void shutdown() {
+        storage.shutdown();
+        resolver.shutdown();
     }
 
-    public HTTPResponse execute(final HTTPRequest request, boolean force) {
+    private HTTPResponse execute(final HTTPRequest request, boolean force) {
         if (resolver == null) {
             throw new IllegalStateException("The resolver was not set, no point of continuing with the request");
         }
@@ -110,7 +99,7 @@ public class HTTPCache {
             boolean shouldUnlock = true;
             try {
                 if (mutex.acquire(request.getRequestURI())) {
-                    response = doRequest(request, force || request.getConditionals().isUnconditional());
+                    response = doRequest(request, force || (request.getHeaders().getCacheControl() != null && request.getHeaders().getCacheControl().isNoStore()));
                 } else {
                     response = new HTTPResponse(null, Status.BAD_GATEWAY, new Headers());
                     shouldUnlock = false;
@@ -171,7 +160,7 @@ public class HTTPCache {
         if (!staleResponse.hasPayload() || staleResponse.getPayload().isAvailable()) {
             return helper.prepareConditionalGETRequest(request, staleResponse);
         }
-        return request.conditionals(new Conditionals());
+        return request.headers(request.getHeaders().withConditionals(new Conditionals()));
     }
 
     private HTTPResponse unconditionalResolve(final HTTPRequest request) {
@@ -193,8 +182,13 @@ public class HTTPCache {
             }
         }
         if (resolvedResponse != null) {
-            if (!request.getMethod().isSafe() && resolvedResponse.getStatus().getCategory() == Status.Category.SUCCESS) {
-                storage.invalidate(request.getRequestURI());
+            if (!request.getMethod().isSafe() && isSuccessfulResponse(resolvedResponse)) {
+                URI requestUri = request.getNormalizedURI();
+                storage.invalidate(requestUri);
+
+                // http://tools.ietf.org/html/rfc2616#section-13.10
+                invalidateIfSameHostAsRequest(resolvedResponse.getLocation(), requestUri);
+                invalidateIfSameHostAsRequest(resolvedResponse.getContentLocation(), requestUri);
             }
 
             boolean updated = false;
@@ -226,6 +220,12 @@ public class HTTPCache {
         return response;
     }
 
+    //http://tools.ietf.org/html/draft-ietf-httpbis-p6-cache-22#section-6
+    private boolean isSuccessfulResponse(HTTPResponse resolvedResponse) {
+        Status.Category category = resolvedResponse.getStatus().getCategory();
+        return category == Status.Category.SUCCESS || category == Status.Category.REDIRECTION;
+    }
+
     private HTTPResponse resolveWithHeadRewrite(HTTPRequest request, HTTPResponse resolvedResponse) throws IOException {
         if (request.getMethod() == HTTPMethod.HEAD && isTranslateHEADToGET()) { // We change this to GET and cache the result.
             resolvedResponse = resolver.resolve(request.method(HTTPMethod.GET));
@@ -249,5 +249,11 @@ public class HTTPCache {
 
     public void setTranslateHEADToGET(boolean translateHEADToGET) {
         this.translateHEADToGET = translateHEADToGET;
+    }
+
+    private void invalidateIfSameHostAsRequest(URI uri, URI requestUri) {
+        if (uri != null && uri.getHost() != null && uri.getHost().equals(requestUri.getHost())) {
+            storage.invalidate(URIBuilder.fromURI(uri).toNormalizedURI());
+        }
     }
 }

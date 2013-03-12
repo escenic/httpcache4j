@@ -15,13 +15,18 @@
 
 package org.codehaus.httpcache4j.resolver;
 
-import org.apache.http.conn.scheme.PlainSocketFactory;
-import org.apache.http.conn.scheme.Scheme;
-import org.apache.http.conn.ssl.SSLSocketFactory;
-import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
-import org.apache.http.params.BasicHttpParams;
-import org.apache.http.params.CoreProtocolPNames;
-import org.apache.http.params.HttpParams;
+import org.apache.http.annotation.NotThreadSafe;
+import org.apache.http.client.RedirectStrategy;
+import org.apache.http.client.params.HttpClientParams;
+import org.apache.http.conn.ClientConnectionManager;
+import org.apache.http.conn.routing.HttpRoute;
+import org.apache.http.impl.client.AbstractHttpClient;
+import org.apache.http.impl.conn.PoolingClientConnectionManager;
+import org.apache.http.impl.conn.SchemeRegistryFactory;
+import org.apache.http.params.*;
+import org.apache.http.protocol.HttpContext;
+import org.apache.http.protocol.RequestContent;
+import org.apache.http.util.EntityUtils;
 import org.codehaus.httpcache4j.*;
 import org.codehaus.httpcache4j.Header;
 import org.codehaus.httpcache4j.StatusLine;
@@ -29,8 +34,8 @@ import org.codehaus.httpcache4j.auth.*;
 import org.codehaus.httpcache4j.payload.DelegatingInputStream;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.*;
+import org.apache.http.protocol.HTTP;
 import org.apache.http.*;
-import org.apache.http.conn.scheme.SchemeRegistry;
 import org.apache.http.conn.params.ConnRoutePNames;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.entity.InputStreamEntity;
@@ -39,27 +44,66 @@ import org.codehaus.httpcache4j.payload.Payload;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-
-import static org.codehaus.httpcache4j.HTTPMethod.*;
+import java.util.Map;
 
 /**
  * @author <a href="mailto:hamnis@codehaus.org">Erlend Hamnaberg</a>
  * @version $Revision: #5 $ $Date: 2008/09/15 $
  */
 public class HTTPClientResponseResolver extends AbstractResponseResolver {
-    private HttpClient httpClient;
+    private final HttpClient httpClient;
 
+
+    /**
+     * Turns off the automatic authentication and redirection support of the supplied HttpClient.
+     * Overrides the default proxy support with the supplied configuration in ResolverConfiguration.
+     * Sets the user agent with the configured user agent.
+     *
+     */
     public HTTPClientResponseResolver(HttpClient httpClient, ResolverConfiguration configuration) {
         super(configuration);
         this.httpClient = httpClient;
+
         HTTPHost proxyHost = getProxyAuthenticator().getConfiguration().getHost();
         HttpParams params = httpClient.getParams();
-        if(params==null) {
-        	params = new BasicHttpParams();
-        	if(httpClient instanceof DefaultHttpClient) {
-        		((DefaultHttpClient)httpClient).setParams(params);
-        	}
+        if (params == null) {
+            params = new BasicHttpParams();
+            if (httpClient instanceof AbstractHttpClient) {
+                ((AbstractHttpClient) httpClient).setParams(params);
+            }
         }
+        if (httpClient instanceof AbstractHttpClient) {
+            ConnectionConfiguration config = configuration.getConnectionConfiguration();
+            AbstractHttpClient client = (AbstractHttpClient) httpClient;
+            client.getCredentialsProvider().clear();
+            ClientConnectionManager connectionManager = client.getConnectionManager();
+            if (connectionManager instanceof PoolingClientConnectionManager) {
+                PoolingClientConnectionManager cm = (PoolingClientConnectionManager) connectionManager;
+                if (config.getDefaultConnectionsPerHost().isPresent()) {
+                    cm.setDefaultMaxPerRoute(config.getDefaultConnectionsPerHost().get());
+                }
+                if (config.getMaxConnections().isPresent()) {
+                    cm.setMaxTotal(config.getMaxConnections().get());
+                }
+                for (Map.Entry<HTTPHost, Integer> entry : config.getConnectionsPerHost().entrySet()) {
+                    HTTPHost host = entry.getKey();
+                    cm.setMaxPerRoute(new HttpRoute(new HttpHost(host.getHost(), host.getPort(), host.getScheme())), entry.getValue());
+                }
+            }
+            if (config.getSocketTimeout().isPresent()) {
+                HttpConnectionParams.setSoTimeout(params, config.getSocketTimeout().get());
+            }
+            if (config.getTimeout().isPresent()) {
+                HttpConnectionParams.setConnectionTimeout(params, config.getTimeout().get());
+            }
+
+        }
+        if (httpClient instanceof DefaultHttpClient) {
+            DefaultHttpClient client = (DefaultHttpClient) httpClient;
+            client.removeRequestInterceptorByClass(RequestContent.class);
+            client.addRequestInterceptor(new RequestContent(true));
+        }
+        HttpClientParams.setAuthenticating(params, false);
         if (proxyHost != null) {
             HttpHost host = new HttpHost(proxyHost.getHost(), proxyHost.getPort(), proxyHost.getScheme());
             params.setParameter(ConnRoutePNames.DEFAULT_PROXY, host);
@@ -68,7 +112,7 @@ public class HTTPClientResponseResolver extends AbstractResponseResolver {
     }
 
     public HTTPClientResponseResolver(HttpClient httpClient, ProxyAuthenticator proxyAuthenticator, Authenticator authenticator) {
-        this(httpClient, new ResolverConfiguration(proxyAuthenticator, authenticator));
+        this(httpClient, new ResolverConfiguration(proxyAuthenticator, authenticator, new ConnectionConfiguration()));
     }
     
     public HTTPClientResponseResolver(HttpClient httpClient, ProxyConfiguration proxyConfiguration) {
@@ -79,20 +123,25 @@ public class HTTPClientResponseResolver extends AbstractResponseResolver {
         this(httpClient, new ProxyConfiguration());
     }
 
-    public static HTTPClientResponseResolver createMultithreadedInstance() {
-        SchemeRegistry schemeRegistry = new SchemeRegistry();
-        schemeRegistry.register(
-                new Scheme("http", PlainSocketFactory.getSocketFactory(), 80));
-        schemeRegistry.register(
-                new Scheme("https", SSLSocketFactory.getSocketFactory(), 443));
-
-    ThreadSafeClientConnManager cm = new ThreadSafeClientConnManager(new BasicHttpParams(), schemeRegistry);
-        return new HTTPClientResponseResolver(
-                new DefaultHttpClient(
-                        cm,
-                        new BasicHttpParams()
-                )
+    public static HTTPClientResponseResolver createMultithreadedInstance(ResolverConfiguration configuration) {
+        DefaultHttpClient client = new DefaultHttpClient(
+                new PoolingClientConnectionManager(SchemeRegistryFactory.createDefault()),
+                new SyncBasicHttpParams()
         );
+        return new HTTPClientResponseResolver(client, configuration);
+    }
+
+
+    public static HTTPClientResponseResolver createMultithreadedInstance(ConnectionConfiguration config) {
+        return createMultithreadedInstance(new ResolverConfiguration().withConnectionConfiguration(config));
+    }
+
+    public static HTTPClientResponseResolver createMultithreadedInstance() {
+        return createMultithreadedInstance(new ConnectionConfiguration());
+    }
+
+    public final HttpClient getHttpClient() {
+        return httpClient;
     }
 
     @Override
@@ -107,7 +156,7 @@ public class HTTPClientResponseResolver extends AbstractResponseResolver {
     }
 
     private HttpUriRequest convertRequest(HTTPRequest request) {
-        HttpUriRequest realRequest = getMethod(request.getMethod(), request.getRequestURI());
+        HttpUriRequest realRequest = getMethod(request.getMethod(), request.getNormalizedURI());
 
         Headers headers = request.getAllHeaders();
         for (Header header : headers) {
@@ -129,30 +178,11 @@ public class HTTPClientResponseResolver extends AbstractResponseResolver {
      * @return a new HttpMethod subclass.
      */
     protected HttpUriRequest getMethod(HTTPMethod method, URI requestURI) {
-
-        if (DELETE.equals(method)) {
-            return new HttpDelete(requestURI);
-        }
-        else if (GET.equals(method)) {
-            return new HttpGet(requestURI);
-        }
-        else if (HEAD.equals(method)) {
-            return new HttpHead(requestURI);
-        }
-        else if (OPTIONS.equals(method)) {
-            return new HttpOptions(requestURI);
-        }
-        else if (POST.equals(method)) {
-            return new HttpPost(requestURI);
-        }
-        else if (PUT.equals(method)) {
-            return new HttpPut(requestURI);
-        }
-        else if (TRACE.equals(method)) {
-            return new HttpTrace(requestURI);
+        if (method.canHavePayload()) {
+            return new MethodWithBody(requestURI, method);
         }
         else {
-            throw new IllegalArgumentException("Cannot handle method: " + method);
+            return new Method(requestURI, method);
         }
     }
 
@@ -198,7 +228,7 @@ public class HTTPClientResponseResolver extends AbstractResponseResolver {
 
         @Override
         public void close() throws IOException {
-            entity.consumeContent();
+            EntityUtils.consume(entity);
         }
     }
 
@@ -208,5 +238,41 @@ public class HTTPClientResponseResolver extends AbstractResponseResolver {
             setContentType(payload.getMimeType().toString());
             setChunked(chunked);
         }
+    }
+
+    @NotThreadSafe
+    private static class Method extends HttpRequestBase {
+
+        private HTTPMethod method;
+
+        public Method(final URI uri, HTTPMethod method) {
+            super();
+            this.method = method;
+            setURI(uri);
+        }
+
+        @Override
+        public String getMethod() {
+            return method.getMethod();
+        }
+
+    }
+
+    @NotThreadSafe
+    private static class MethodWithBody extends HttpEntityEnclosingRequestBase {
+
+        private HTTPMethod method;
+
+        public MethodWithBody(final URI uri, HTTPMethod method) {
+            super();
+            this.method = method;
+            setURI(uri);
+        }
+
+        @Override
+        public String getMethod() {
+            return method.getMethod();
+        }
+
     }
 }

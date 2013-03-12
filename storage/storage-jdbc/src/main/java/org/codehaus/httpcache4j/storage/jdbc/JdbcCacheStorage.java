@@ -150,7 +150,7 @@ public class JdbcCacheStorage implements CacheStorage {
         ResultSet rs = null;
         try {
             statement = connection.prepareStatement("select * from response where uri = ?");
-            statement.setString(1, request.getRequestURI().toString());
+            statement.setString(1, request.getNormalizedURI().toString());
             rs = statement.executeQuery();
             while (rs.next()) {
                 CacheItemHolder holder = mapper.mapRow(rs);
@@ -294,6 +294,14 @@ public class JdbcCacheStorage implements CacheStorage {
             return datasource.getConnection();
         } catch (SQLException e) {
             throw new DataAccessException("Unable to get new connection", e);
+        }
+    }
+
+    @Override
+    public void shutdown() {
+        try {
+            getConnection().close();
+        } catch (SQLException ignore) {
         }
     }
 

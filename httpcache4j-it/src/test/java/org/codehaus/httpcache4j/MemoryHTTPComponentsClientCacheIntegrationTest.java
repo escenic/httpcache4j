@@ -13,29 +13,23 @@
  *   limitations under the License.
  */
 
-package org.codehaus.httpcache4j.preference;
+package org.codehaus.httpcache4j;
+
+import org.codehaus.httpcache4j.cache.CacheStorage;
+import org.codehaus.httpcache4j.cache.MemoryCacheStorage;
+import org.codehaus.httpcache4j.resolver.HTTPClientResponseResolver;
+import org.codehaus.httpcache4j.resolver.ResponseResolver;
 
 
-import java.util.Locale;
+public class MemoryHTTPComponentsClientCacheIntegrationTest extends AbstractCacheIntegrationTest {
 
-/**
- * Represents a Language preference.
- * <p/>
- * Described in http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html section: 14.2 and 14.4
- */
-public class LocalePreference extends Preference<Locale> {
-    public static Locale ALL = new Locale("*");
-
-    public LocalePreference(Locale us) {
-        super(us);
-    }
-
-    public LocalePreference(Locale preference, double quality) {
-        super(preference, quality);
+    @Override
+    protected CacheStorage createStorage() {
+        return new MemoryCacheStorage();
     }
 
     @Override
-    protected String getStringValue() {
-        return getPreference().getLanguage();
+    protected ResponseResolver createReponseResolver() {
+        return HTTPClientResponseResolver.createMultithreadedInstance();
     }
 }

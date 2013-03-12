@@ -20,7 +20,7 @@
   <groupId>org.codehaus.httpcache4j</groupId>
   <artifactId>httpcache4j</artifactId>
   <packaging>pom</packaging>
-  <version>3.5-SNAPSHOT</version>
+  <version>4.0-M7-SNAPSHOT</version>
   <name>Java HTTP cache</name>
   <url>http://httpcache4j.codehaus.org</url>
   <description>HttpCache4j is a library for caching HTTP requests from a client.</description>
@@ -155,13 +155,13 @@
               <artifactId>maven-project-info-reports-plugin</artifactId>
               <version>2.2</version>
             </plugin>
-<!--
-            <plugin>
-              <groupId>org.codehaus.mojo</groupId>
-              <artifactId>findbugs-maven-plugin</artifactId>
-              <version>2.3.1</version>
-            </plugin>
--->
+            <!--
+                        <plugin>
+                          <groupId>org.codehaus.mojo</groupId>
+                          <artifactId>findbugs-maven-plugin</artifactId>
+                          <version>2.3.1</version>
+                        </plugin>
+            -->
             <plugin>
               <groupId>org.codehaus.mojo</groupId>
               <artifactId>taglist-maven-plugin</artifactId>
@@ -183,6 +183,8 @@
         <artifactId>maven-release-plugin</artifactId>
         <version>2.2.1</version>
         <configuration>
+          <pushChanges>false</pushChanges>
+          <localCheckout>true</localCheckout>
           <autoVersionSubmodules>true</autoVersionSubmodules>
           <preparationGoals>clean install</preparationGoals>
           <goals>deploy</goals>
@@ -284,6 +286,7 @@
     <module>httpcache4j-core</module>
     <module>httpcache4j-api</module>
     <module>httpcache4j-storage-api</module>
+    <module>httpcache4j-spring</module>
     <module>resolvers</module>
     <module>storage</module>
     <module>httpcache4j-it</module>
