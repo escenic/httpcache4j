@@ -206,7 +206,7 @@ public class HTTPCache {
                 response = resolvedResponse;
                 if(item != null && resolvedResponse.getStatus() != Status.NOT_MODIFIED) {
                     updated = true;
-                    storage.invalidate(request.getNormalizedURI());
+                    storage.invalidate(request.getRequestURI());
                 }
             } else if (helper.isCacheableResponse(resolvedResponse) && helper.shouldBeStored(resolvedResponse)) {
                 response = storage.insert(request, resolvedResponse);
