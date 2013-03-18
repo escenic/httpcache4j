@@ -13,6 +13,7 @@ import org.codehaus.httpcache4j.auth.Authenticator;
 import org.codehaus.httpcache4j.auth.ProxyAuthenticator;
 import org.codehaus.httpcache4j.mutable.MutableHeaders;
 import org.codehaus.httpcache4j.resolver.AbstractResponseResolver;
+import org.codehaus.httpcache4j.resolver.ConnectionConfiguration;
 import org.codehaus.httpcache4j.resolver.ResolverConfiguration;
 
 import java.io.IOException;
@@ -34,8 +35,32 @@ public class NingResponseResolver extends AbstractResponseResolver {
 
     protected NingResponseResolver(ResolverConfiguration configuration, AsyncHttpClientConfig asyncConfig) {
         super(configuration);
-        client = new AsyncHttpClient(new AsyncHttpClientConfig.Builder(Preconditions.checkNotNull(asyncConfig, "Async config may not be null")).
-                setUserAgent(configuration.getUserAgent()).build());
+        AsyncHttpClientConfig.Builder config = new AsyncHttpClientConfig.Builder(Preconditions.checkNotNull(asyncConfig, "Async config may not be null")).
+                setUserAgent(configuration.getUserAgent());
+        config.setAllowPoolingConnection(true);
+        config.setFollowRedirects(false);
+        ConnectionConfiguration connectionConfiguration = configureConnections(configuration, config);
+        if (!connectionConfiguration.getConnectionsPerHost().isEmpty()) {
+            throw new UnsupportedOperationException("This Resolver does not support connections per host");
+        }
+        client = new AsyncHttpClient(config.build());
+    }
+
+    private ConnectionConfiguration configureConnections(ResolverConfiguration configuration, AsyncHttpClientConfig.Builder config) {
+        ConnectionConfiguration connectionConfiguration = configuration.getConnectionConfiguration();
+        if (connectionConfiguration.getMaxConnections().isPresent()) {
+            config.setMaximumConnectionsTotal(connectionConfiguration.getMaxConnections().get());
+        }
+        if (connectionConfiguration.getDefaultConnectionsPerHost().isPresent()) {
+            config.setMaximumConnectionsPerHost(connectionConfiguration.getDefaultConnectionsPerHost().get());
+        }
+        if (connectionConfiguration.getTimeout().isPresent()) {
+            config.setConnectionTimeoutInMs(connectionConfiguration.getTimeout().get());
+        }
+        if (connectionConfiguration.getSocketTimeout().isPresent()) {
+            config.setWebSocketIdleTimeoutInMs(connectionConfiguration.getSocketTimeout().get());
+        }
+        return connectionConfiguration;
     }
 
     public NingResponseResolver(ResolverConfiguration configuration) {
@@ -43,7 +68,19 @@ public class NingResponseResolver extends AbstractResponseResolver {
     }
 
     public NingResponseResolver(ProxyAuthenticator proxyAuthenticator, Authenticator authenticator) {
-        this(new ResolverConfiguration(proxyAuthenticator, authenticator));
+        this(new ResolverConfiguration(proxyAuthenticator, authenticator, new ConnectionConfiguration()));
+    }
+
+    public static NingResponseResolver newInstance(ResolverConfiguration configuration) {
+        return new NingResponseResolver(configuration);
+    }
+
+    public static NingResponseResolver newInstance(ConnectionConfiguration configuration) {
+        return newInstance(new ResolverConfiguration().withConnectionConfiguration(configuration));
+    }
+
+    public static NingResponseResolver newInstance() {
+        return newInstance(new ConnectionConfiguration());
     }
 
     @Override
@@ -79,7 +116,7 @@ public class NingResponseResolver extends AbstractResponseResolver {
     }
 
     private Future<Response> execute(final HTTPRequest request) throws IOException {
-        AsyncHttpClient.BoundRequestBuilder builder = builder(request.getRequestURI(), request.getMethod());
+        AsyncHttpClient.BoundRequestBuilder builder = builder(request.getNormalizedURI(), request.getMethod());
         if (request.getMethod().canHavePayload() && request.hasPayload()) {
             if (getConfiguration().isUseChunked()) {
                 builder.setBody(new InputStreamBodyGenerator(request.getPayload().getInputStream()));

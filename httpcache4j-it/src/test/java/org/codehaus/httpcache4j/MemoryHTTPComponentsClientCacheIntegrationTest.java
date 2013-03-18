@@ -13,20 +13,23 @@
  *   limitations under the License.
  */
 
-package org.codehaus.httpcache4j.util;
+package org.codehaus.httpcache4j;
 
-import java.io.File;
+import org.codehaus.httpcache4j.cache.CacheStorage;
+import org.codehaus.httpcache4j.cache.MemoryCacheStorage;
+import org.codehaus.httpcache4j.resolver.HTTPClientResponseResolver;
+import org.codehaus.httpcache4j.resolver.ResponseResolver;
 
-/**
- * @author <a href="mailto:erlend@codehaus.org">Erlend Hamnaberg</a>
- * @version $Revision: $
- */
-public final class StorageUtil {
-    private StorageUtil(){}
 
-    public static synchronized void ensureDirectoryExists(File directory) {
-        if (!directory.exists() && !directory.mkdirs()) {
-            throw new IllegalArgumentException(String.format("Directory %s did not exist, and could not be created", directory));
-        }
+public class MemoryHTTPComponentsClientCacheIntegrationTest extends AbstractCacheIntegrationTest {
+
+    @Override
+    protected CacheStorage createStorage() {
+        return new MemoryCacheStorage();
+    }
+
+    @Override
+    protected ResponseResolver createReponseResolver() {
+        return HTTPClientResponseResolver.createMultithreadedInstance();
     }
 }

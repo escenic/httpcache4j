@@ -21,7 +21,7 @@
   <parent>
     <groupId>org.codehaus.httpcache4j.resolvers</groupId>
     <artifactId>resolvers</artifactId>
-    <version>3.5-SNAPSHOT</version>
+    <version>4.0-M7-SNAPSHOT</version>
   </parent>
   <artifactId>resolvers-ning-async</artifactId>
   <packaging>jar</packaging>
@@ -32,8 +32,7 @@
     <dependency>
       <groupId>com.ning</groupId>
       <artifactId>async-http-client</artifactId>
-      <classifier>shaded</classifier>
-      <version>1.6.3</version>
+      <version>1.7.5</version>
     </dependency>
     <dependency>
       <groupId>org.codehaus.httpcache4j</groupId>

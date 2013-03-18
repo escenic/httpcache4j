@@ -16,6 +16,7 @@
 
 package org.codehaus.httpcache4j.cache;
 
+import com.google.common.annotations.Beta;
 import com.google.common.collect.Iterators;
 import com.google.common.io.Closeables;
 import com.google.common.io.Files;
@@ -26,7 +27,6 @@ import org.codehaus.httpcache4j.payload.FilePayload;
 import org.codehaus.httpcache4j.payload.Payload;
 import org.codehaus.httpcache4j.util.Pair;
 import org.codehaus.httpcache4j.util.PropertiesLoader;
-import org.codehaus.httpcache4j.util.StorageUtil;
 
 import java.io.*;
 import java.net.URI;
@@ -37,6 +37,7 @@ import java.util.*;
  *
  * @author <a href="mailto:hamnis@codehaus.org">Erlend Hamnaberg</a>
  */
+@Beta
 public class PersistentCacheStorage2 implements CacheStorage {
     private final FileManager fileManager;
 
@@ -79,7 +80,7 @@ public class PersistentCacheStorage2 implements CacheStorage {
     private void writeItem(Key key, SerializableCacheItem item) throws IOException {
         File metadata = new File(fileManager.resolve(key).getAbsolutePath() + ".metadata");
         if (!metadata.getParentFile().exists()) {
-            StorageUtil.ensureDirectoryExists(metadata.getParentFile());
+            fileManager.ensureDirectoryExists(metadata.getParentFile());
         }
         FileWriter writer = null;
         try {
@@ -126,12 +127,20 @@ public class PersistentCacheStorage2 implements CacheStorage {
 
     @Override
     public synchronized CacheItem get(HTTPRequest request) {
-        File uri = fileManager.resolve(request.getRequestURI());
+        Pair<Key, CacheItem> item = getItem(request);
+        if (item != null) {
+            return item.getValue();
+        }
+        return null;
+    }
+
+    synchronized Pair<Key, CacheItem> getItem(HTTPRequest request) {
+        File uri = fileManager.resolve(request.getNormalizedURI());
         File[] files = uri.listFiles((FileFilter) new SuffixFileFilter("metadata"));
         for (File file : new FilesIterable(files)) {
             Pair<Key, CacheItem> pair = readItem(file);
             if (pair != null && pair.getKey().getVary().matches(request)) {
-                return pair.getValue();
+                return pair;
             }
         }
         return null;
@@ -140,6 +149,10 @@ public class PersistentCacheStorage2 implements CacheStorage {
     @Override
     public synchronized void invalidate(URI uri) {
         fileManager.clear(uri);
+    }
+
+    synchronized void invalidate(Key key) {
+        fileManager.remove(key);
     }
 
     @Override
@@ -176,6 +189,10 @@ public class PersistentCacheStorage2 implements CacheStorage {
             }
         }
         return Collections.unmodifiableList(keys).iterator();
+    }
+
+    @Override
+    public void shutdown() {
     }
 
     private static class FilesIterable implements Iterable<File> {
