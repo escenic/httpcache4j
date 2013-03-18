@@ -33,7 +33,7 @@ import java.net.URI;
  *
  * @author <a href="mailto:hamnis@codehaus.org">Erlend Hamnaberg</a>
  */
-public final class HTTPRequest {
+public class HTTPRequest {
     private final URI requestURI;
     private final HTTPMethod method;
     private final Conditionals conditionals;

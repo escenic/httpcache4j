@@ -35,7 +35,7 @@ import static org.codehaus.httpcache4j.HeaderConstants.*;
  *
  * @author <a href="mailto:hamnis@codehaus.org">Erlend Hamnaberg</a>
  */
-public final class HTTPResponse {
+public class HTTPResponse {
     
     private final StatusLine statusLine;
     private final Payload payload;
