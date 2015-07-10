@@ -20,7 +20,7 @@
   <groupId>org.codehaus.httpcache4j</groupId>
   <artifactId>httpcache4j</artifactId>
   <packaging>pom</packaging>
-  <version>3.4-escenic-5</version>
+  <version>3.4-escenic-6</version>
   <name>Java HTTP cache</name>
   <url>http://httpcache4j.codehaus.org</url>
   <description>HttpCache4j is a library for caching HTTP requests from a client.</description>
@@ -284,7 +284,7 @@
       <dependency>
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
-        <version>r07</version>
+        <version>18.0</version>
       </dependency>
       <dependency>
         <groupId>commons-codec</groupId>
